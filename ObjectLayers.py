@@ -33,7 +33,7 @@ class Layer_Dense:
         self.biases = np.zeros(shape=(1, n_neurons))
         # We can define weights the other way to get rid of the transpose operation
         # in the forward function
-        # self.weights = 0.10 * np.random.randn(n_inputs, n_inputs)
+        # self.weights = 0.10 * np.random.randn(n_inputs, n_weights)
 
     def forward(self, inputs):
         self.output = np.dot(inputs, np.array(self.weights).T) + self.biases
@@ -81,10 +81,8 @@ if __name__ == '__main__':
     layer1.forward(X)  # z = wT*x + b
     activation1.forward(layer1.output)  # y = ReLU(z)
 
-    layer2.forward(layer1.output)  # z = wT*x + b   x -> layer1 output
+    layer2.forward(activation1.output)  # z = wT*x + b   x -> layer1 output
     activation2.forward(layer2.output)  # y = softmax(z)
 
-    print(activation1.output)
-    print('####')
-    print(activation2.output)
+    print(activation2.output[:5])
 
