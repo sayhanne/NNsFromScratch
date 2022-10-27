@@ -1,4 +1,5 @@
 import numpy as np
+
 # import matplotlib.pyplot as plt
 
 np.random.seed(0)
@@ -193,6 +194,31 @@ class Activation_Softmax_Loss_CategoricalCrossEntropy:
         self.d_inputs = self.d_inputs / samples
 
 
+class Optimizer_SGD:
+    # Initialize optimizer - set settings,
+    # Learning rate of 1 is default for this optimizer,
+    # but we will change it dynamically in our model (learning rate decay)
+    def __init__(self, learning_rate=1.0, decay=0.):
+        self.learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+        self.current_learning_rate = learning_rate
+
+    # Call once before any parameter updates
+    def pre_update_params(self):
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+
+    # Update parameters
+    def update_params(self, layer):
+        layer.weights += -self.current_learning_rate * layer.d_weights
+        layer.biases += -self.current_learning_rate * layer.d_biases
+
+    # Call once after any parameter updates
+    def post_update_params(self):
+        self.iterations += 1
+
+
 if __name__ == '__main__':
     X, y = create_data(samples=100, classes=3)
 
@@ -202,45 +228,62 @@ if __name__ == '__main__':
     # plt.scatter(X[:, 0], X[:, 1], c=y, cmap='brg')
     # plt.show()
 
+    # Create hidden layer with 64 neurons
     # Since we have 2 features for each sample, there are 2 inputs coming from the input layer.
-    layer1 = Layer_Dense(2, 3)
+    layer1 = Layer_Dense(2, 64)
     activation1 = Activation_ReLU()
 
-    layer2 = Layer_Dense(3, 3)
+    layer2 = Layer_Dense(64, 3)
     # activation2 = Activation_Softmax()
-
     activation_loss = Activation_Softmax_Loss_CategoricalCrossEntropy()
-    layer1.forward(X)  # z = wT*x + b
-    activation1.forward(layer1.output)  # y = ReLU(z)
 
-    layer2.forward(activation1.output)  # z = wT*x + b   x -> activation1 output
-    loss = activation_loss.forward(layer2.output, y)  # combined loss + activation (forward, backward)
-    print(activation_loss.output[:5])
-    print("Loss: ", loss)
+    # Create optimizer
+    optimizer = Optimizer_SGD(learning_rate=0.85, decay=1e-3)
 
-    # activation2.forward(layer2.output)   # y = softmax(z)
-    # print(activation2.output[:5])
+    for epoch in range(10001):
+        layer1.forward(X)  # z = wT*x + b
+        activation1.forward(layer1.output)  # y = ReLU(z)
 
-    # loss_function = Loss_CategoricalCrossEntropy()
-    # loss = loss_function.calculate(activation2.output, y)
+        layer2.forward(activation1.output)  # z = wT*x + b   x -> activation1 output
+        loss = activation_loss.forward(layer2.output, y)  # combined loss + activation (forward, backward)
+        # print(activation_loss.output[:5])
+        # print("Loss: ", loss)
 
-    # Calculate accuracy from output of last activation function and targets
-    # calculate values along first axis
-    predictions = np.argmax(activation_loss.output, axis=1)
-    if len(y.shape) == 2:  # Check if it's one-hot vector
-        y = np.argmax(y, axis=1)
-    accuracy = np.mean(predictions == y)
-    # Print accuracy
-    print('acc:', accuracy)
+        # activation2.forward(layer2.output)   # y = softmax(z)
+        # print(activation2.output[:5])
 
-    # 1 simple backward pass for 2 layers
-    activation_loss.backward(activation_loss.output, y)
-    layer2.backward(activation_loss.d_inputs)
-    activation1.backward(layer2.d_inputs)
-    layer1.backward(activation1.d_inputs)
+        # loss_function = Loss_CategoricalCrossEntropy()
+        # loss = loss_function.calculate(activation2.output, y)
 
-    # Print gradients of the parameters
-    print(layer1.d_weights)
-    print(layer1.d_biases)
-    print(layer2.d_weights)
-    print(layer2.d_biases)
+        # Calculate accuracy from output of last activation function and targets
+        # calculate values along first axis
+        predictions = np.argmax(activation_loss.output, axis=1)
+        if len(y.shape) == 2:  # Check if it's one-hot vector
+            y = np.argmax(y, axis=1)
+        accuracy = np.mean(predictions == y)
+        # Print accuracy
+        # print('acc:', accuracy)
+        if not epoch % 100:
+            print(f'epoch: {epoch}, ' +
+                  f'acc: {accuracy:.3f}, ' +
+                  f'loss: {loss:.3f}, ' +
+                  f'lr: {optimizer.current_learning_rate}')
+
+        # Backward pass for 2 layers
+        activation_loss.backward(activation_loss.output, y)
+        layer2.backward(activation_loss.d_inputs)
+        activation1.backward(layer2.d_inputs)
+        layer1.backward(activation1.d_inputs)
+
+        # Print gradients of the parameters
+        # print(layer1.d_weights)
+        # print(layer1.d_biases)
+        # print(layer2.d_weights)
+        # print(layer2.d_biases)
+
+        # Update weights and biases
+        optimizer.pre_update_params()   # Update learning rate
+        optimizer.update_params(layer1)
+        optimizer.update_params(layer2)
+        optimizer.post_update_params()  # Update learning rate iterations
+
